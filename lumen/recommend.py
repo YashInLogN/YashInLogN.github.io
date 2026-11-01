@@ -8,6 +8,7 @@ import joblib
 import pandas as pd
 
 from lumen.explain import explain_prediction
+from lumen.features import _parse_completed
 
 
 def load_model(artifacts_dir: Path):
@@ -22,8 +23,6 @@ def recommend_courses(
     top_n: int = 5,
     exclude_completed: bool = True,
 ) -> list[dict]:
-    from lumen.features import _parse_completed
-
     completed = set(_parse_completed(student["completed_courses"]))
     candidates = courses.copy()
     if exclude_completed:
@@ -40,6 +39,7 @@ def recommend_courses(
                 "department": course.department,
                 "difficulty": course.difficulty,
                 "credits": course.credits,
+                "prerequisites": _parse_completed(course.prerequisites),
                 "fit_score": score,
                 "bullets": bullets,
             }

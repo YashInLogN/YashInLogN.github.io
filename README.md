@@ -16,6 +16,7 @@ cd Lumen
 python -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
+```
 
 **macOS:** LightGBM needs OpenMP. If import fails, install it with Homebrew:
 
@@ -23,6 +24,7 @@ pip install -r requirements.txt
 brew install libomp
 ```
 
+```bash
 # Train model & generate synthetic data (optional — app does this on first run)
 python -m lumen.model.train
 
@@ -39,7 +41,7 @@ streamlit run app.py
 | `lumen/model/train.py` | Train & persist LightGBM regressor |
 | `lumen/explain.py` | SHAP → readable explanation bullets |
 | `lumen/recommend.py` | Rank courses for a profile |
-| `app.py` | Streamlit app: rankings + explanations side by side |
+| `app.py` | Streamlit app: rankings, explanations, and a **Subject codes** guide |
 
 ## Design principles (from project brief)
 

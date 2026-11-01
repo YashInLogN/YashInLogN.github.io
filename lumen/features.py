@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-import ast
 from typing import Any
 
-import numpy as np
 import pandas as pd
 
-from lumen.data.synthetic import DEPARTMENTS, courses_dataframe
+from lumen.data.synthetic import DEPARTMENTS, courses_dataframe, parse_id_list
 
 MAJOR_COLS = [f"major_{m.replace(' ', '_')}" for m in DEPARTMENTS.keys()]
 FEATURE_NAMES = MAJOR_COLS + [
@@ -43,16 +41,18 @@ for m in DEPARTMENTS.keys():
 
 
 def _parse_completed(val: Any) -> list[str]:
-    if val is None or (isinstance(val, float) and np.isnan(val)):
-        return []
-    if isinstance(val, list):
-        return val
-    if isinstance(val, str):
-        val = val.strip()
-        if val.startswith("["):
-            return ast.literal_eval(val)
-        return [x.strip() for x in val.split("|") if x.strip()]
-    return list(val)
+    return parse_id_list(val)
+
+
+_DEPT_BY_COURSE: dict[str, str] | None = None
+
+
+def _dept_map() -> dict[str, str]:
+    global _DEPT_BY_COURSE
+    if _DEPT_BY_COURSE is None:
+        course_df = courses_dataframe()
+        _DEPT_BY_COURSE = dict(zip(course_df["course_id"], course_df["department"]))
+    return _DEPT_BY_COURSE
 
 
 def _prereqs_met(completed: set[str], prereqs: list[str]) -> bool:
@@ -80,9 +80,7 @@ def row_to_features(
 
     prereqs = prerequisites or []
     prereqs_ok = _prereqs_met(completed, prereqs)
-    course_df = courses_dataframe()
-    dept_map = dict(zip(course_df["course_id"], course_df["department"]))
-    completed_in_dept = sum(1 for cid in completed if dept_map.get(cid) == course_department)
+    completed_in_dept = sum(1 for cid in completed if _dept_map().get(cid) == course_department)
 
     readiness = year + (gpa - 2.0) / 2.0
     diff_vs = course_difficulty - readiness

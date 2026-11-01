@@ -11,7 +11,7 @@ from sklearn.linear_model import Ridge
 from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
 
-from lumen.data.synthetic import save_default_dataset, students_schema_ok
+from lumen.data.synthetic import courses_dataframe, save_default_dataset, students_schema_ok
 from lumen.features import FEATURE_NAMES, dataframe_to_feature_matrix
 from lumen.model.gbm import create_fit_regressor
 
@@ -21,7 +21,8 @@ def load_or_create_data(data_dir: Path) -> tuple[pd.DataFrame, pd.DataFrame, pd.
     if not students_schema_ok(students_path):
         save_default_dataset(str(data_dir))
     students = pd.read_csv(students_path)
-    courses = pd.read_csv(data_dir / "courses.csv")
+    courses = courses_dataframe()
+    courses.to_csv(data_dir / "courses.csv", index=False)
     pairs = pd.read_csv(data_dir / "training_pairs.csv")
     return students, courses, pairs
 

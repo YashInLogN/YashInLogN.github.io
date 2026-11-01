@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-import json
+import ast
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -52,6 +53,59 @@ COURSE_CATALOG = [
 ]
 
 UNIVERSITY_EMAIL_DOMAIN = "student.chandigarhuniversity.edu"
+DEPARTMENT_LABELS = {code: major for major, code in DEPARTMENTS.items()}
+
+
+def parse_id_list(val: Any) -> list[str]:
+    """Parse course-id lists from CSV strings, Python lists, or missing values."""
+    if val is None or (isinstance(val, float) and np.isnan(val)):
+        return []
+    if isinstance(val, np.ndarray):
+        return [str(x) for x in val.tolist()]
+    if isinstance(val, (list, tuple, set)):
+        return [str(x) for x in val]
+    if isinstance(val, str):
+        text = val.strip()
+        if not text:
+            return []
+        if text.startswith("[") or text.startswith("("):
+            try:
+                parsed = ast.literal_eval(text)
+            except (ValueError, SyntaxError):
+                return [text]
+            if isinstance(parsed, (list, tuple, set)):
+                return [str(x) for x in parsed]
+            return [str(parsed)]
+        return [x.strip() for x in text.split("|") if x.strip()]
+    return [str(val)]
+
+
+def course_name_map() -> dict[str, str]:
+    return {cid: name for cid, name, *_rest in COURSE_CATALOG}
+
+
+def format_course_code(course_id: str) -> str:
+    name = course_name_map().get(str(course_id))
+    return f"{course_id} — {name}" if name else str(course_id)
+
+
+def catalog_guide_dataframe() -> pd.DataFrame:
+    """Catalog table for students: code, title, department, and prerequisites."""
+    names = course_name_map()
+    rows = []
+    for cid, name, dept, diff, credits, prereqs in COURSE_CATALOG:
+        readable_prereqs = ", ".join(f"{p} ({names.get(p, p)})" for p in prereqs) or "None"
+        rows.append(
+            {
+                "Subject code": cid,
+                "Subject name": name,
+                "Department": f"{dept} — {DEPARTMENT_LABELS.get(dept, dept)}",
+                "Level": diff,
+                "Credits": credits,
+                "Prerequisites": readable_prereqs,
+            }
+        )
+    return pd.DataFrame(rows)
 
 
 def courses_dataframe() -> pd.DataFrame:
@@ -208,7 +262,7 @@ def build_training_pairs(students: pd.DataFrame, seed: int = 42) -> pd.DataFrame
     courses = courses_dataframe()
     rows = []
     for stu in students.itertuples():
-        completed = set(stu.completed_courses)
+        completed = set(parse_id_list(stu.completed_courses))
         for course in courses.itertuples():
             fit = _synthetic_fit(
                 stu.major,
@@ -217,7 +271,7 @@ def build_training_pairs(students: pd.DataFrame, seed: int = 42) -> pd.DataFrame
                 completed,
                 course.department,
                 course.difficulty,
-                list(course.prerequisites) if isinstance(course.prerequisites, list) else course.prerequisites,
+                parse_id_list(course.prerequisites),
                 rng,
             )
             rows.append(
@@ -255,7 +309,5 @@ def students_to_json_records(students: pd.DataFrame) -> list[dict]:
     """Export student table as JSON-friendly records (for inspection or APIs)."""
     records = students.copy()
     if "completed_courses" in records.columns:
-        records["completed_courses"] = records["completed_courses"].apply(
-            lambda x: json.loads(x) if isinstance(x, str) and x.startswith("[") else x
-        )
+        records["completed_courses"] = records["completed_courses"].apply(parse_id_list)
     return records.to_dict(orient="records")
